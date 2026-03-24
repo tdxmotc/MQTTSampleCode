@@ -1,9 +1,9 @@
 ﻿// 本範例使用之套件為 MQTTnet。網址: https://github.com/dotnet/MQTTnet
-// 版本 : 4.3.6.1152
+// 版本 : 5.1.0.1559
 // 請先透過 NuGet 安裝此套件 !!
 
 using MQTTnet;
-using MQTTnet.Client;
+using System.Buffers;
 using System.Text;
 
 namespace TDX_MQTT
@@ -49,7 +49,7 @@ namespace TDX_MQTT
                 .Build();
 
             // 建立 MqttClient、加入事件
-            _MqttClient = new MqttFactory().CreateMqttClient();
+            _MqttClient = new MqttClientFactory().CreateMqttClient();
             _MqttClient.ConnectedAsync += ConnectedHandle;        // 加入伺服器連線事件
             _MqttClient.DisconnectedAsync += DisconnectedHandle;  // 加入伺服器斷線事件
             _MqttClient.ApplicationMessageReceivedAsync += ApplicationMessageReceivedHandle;  // 加入收到推播事件
@@ -58,13 +58,13 @@ namespace TDX_MQTT
             await _MqttClient.ConnectAsync(Options);  
 
             // 訂閱頻道
-            await SubcribeTopic();
+            await SubscribeTopic();
             Console.WriteLine("==========================================================================");
         }
 
 
         /// <summary>訂閱頻道</summary>
-        private static async Task SubcribeTopic()
+        private static async Task SubscribeTopic()
         {
             if (_MqttClient.IsConnected)
             {
@@ -97,7 +97,7 @@ namespace TDX_MQTT
         private static Task ApplicationMessageReceivedHandle(MqttApplicationMessageReceivedEventArgs arg)
         {
             Console.WriteLine($"Received message on topic: [{arg.ApplicationMessage.Topic}]");
-            Console.WriteLine($"Message: {Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment)}");
+            Console.WriteLine($"Message: {Encoding.UTF8.GetString(arg.ApplicationMessage.Payload.ToArray())}");
             Console.WriteLine("==========================================================================");
             return Task.CompletedTask;
         }
