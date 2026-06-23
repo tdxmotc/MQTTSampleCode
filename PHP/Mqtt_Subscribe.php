@@ -23,17 +23,20 @@ $port = 8883;
 $clientID = 'your_clientID';
 
 //MQTT連線Username，需從TDX網站會員中心取得
-$username = 'your_userName';
+$username = 'your_username';
 
 //MQTT連線Password，需從TDX網站會員中心取得
-$password = 'your_passWord';
+$password = 'your_password';
 
 //MQTT連線時的QoS等級
 $qos = 1;
 
 $connectionSettings = (new ConnectionSettings)
 ->setUsername($username)
-->setPassword($password);
+->setPassword($password)
+->setUseTls(true)
+->setTlsVerifyPeer(true)
+->setTlsSelfSignedAllowed(false);
 
 //訂閱的MQTT頻道
 $topics = [
