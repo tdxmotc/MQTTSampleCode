@@ -1,4 +1,4 @@
-﻿// 本範例使用之套件為 MQTTnet。網址: https://github.com/dotnet/MQTTnet
+// 本範例使用之套件為 MQTTnet。網址: https://github.com/dotnet/MQTTnet
 // 版本 : 5.1.0.1559
 // 請先透過 NuGet 安裝此套件 !!
 
@@ -10,27 +10,45 @@ namespace TDX_MQTT
 {
     internal class Program
     {
-        private static IMqttClient _MqttClient;
-        private static string Host = "your_host";
-        private static int Port = 8083;
-        private static string ClientID = "your_clientID";
-        private static string UserName = "your_userName";
-        private static string Password = "your_passWord";
-        private static MQTTnet.Protocol.MqttQualityOfServiceLevel Qos = MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce;
-        private static MqttClientTlsOptions TlsOptions = new MqttClientTlsOptions() {
-            UseTls = false,
-            SslProtocol = System.Security.Authentication.SslProtocols.Tls12,
-            AllowUntrustedCertificates = true
+        //MQTT Client
+        private static IMqttClient mqttClient;
+
+        //MQTT連線位址
+        private static string mqttHost = "mqtt.transportdata.tw";
+
+        //MQTT連線Port
+        private static int mqttPort = 8883;
+
+        //MQTT連線ClientId，需從TDX網站會員中心取得
+        private static string mqttClientID = "your_clientID"; 
+        
+        //MQTT連線Username，需從TDX網站會員中心取得
+        private static string mqttUserName = "your_userName"; 
+        
+        //MQTT連線Password，需從TDX網站會員中心取得
+        private static string mqttPassword = "your_passWord"; 
+
+        //MQTT連線時的QoS等級
+        private static MQTTnet.Protocol.MqttQualityOfServiceLevel mqttQos = MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce;
+
+        //MQTT連線時的TLS設定
+        private static MqttClientTlsOptions mqttTlsOptions = new MqttClientTlsOptions()
+        {
+            UseTls = true,
+            SslProtocol = System.Security.Authentication.SslProtocols.Tls13,
+            AllowUntrustedCertificates = false
         };
-        private static List<string> Topics = new List<string> 
-        { "v2/Bus/RealTimeNearStop/City/Taipei/108", "v2/Bus/RealTimeNearStop/City/Taipei/206" };
+
+        //訂閱的MQTT頻道
+        private static List<string> mqttTopics = new List<string>
+        { "v2/Bus/Alert/City/#" };
 
         static async Task Main(string[] args)
         {
             Console.WriteLine("MQTT Initialzing...");
             await Initial();
 
-            // 讓應用程式不結束，等待推播事件
+            //讓應用程式不結束，等待推播事件
             var cts = new CancellationTokenSource();
             await Task.Delay(Timeout.Infinite, cts.Token);
         }
@@ -38,62 +56,62 @@ namespace TDX_MQTT
         /// <summary>初始化設定與連線</summary>
         private static async Task Initial()
         {
-            // 設定 Options
-            var Options = new MqttClientOptionsBuilder()
-                .WithClientId(ClientID)
-                .WithTcpServer(Host, Port)
-                .WithCredentials(UserName, Password)
+            //設定連線參數
+            var options = new MqttClientOptionsBuilder()
+                .WithClientId(mqttClientID)
+                .WithTcpServer(mqttHost, mqttPort)
+                .WithCredentials(mqttUserName, mqttPassword)
                 .WithCleanSession()
-                .WithTlsOptions(TlsOptions)
-                .WithWillQualityOfServiceLevel(Qos)
+                .WithTlsOptions(mqttTlsOptions)
+                .WithWillQualityOfServiceLevel(mqttQos)
                 .Build();
 
-            // 建立 MqttClient、加入事件
-            _MqttClient = new MqttClientFactory().CreateMqttClient();
-            _MqttClient.ConnectedAsync += ConnectedHandle;        // 加入伺服器連線事件
-            _MqttClient.DisconnectedAsync += DisconnectedHandle;  // 加入伺服器斷線事件
-            _MqttClient.ApplicationMessageReceivedAsync += ApplicationMessageReceivedHandle;  // 加入收到推播事件
+            //建立MqttClient、加入事件
+            mqttClient = new MqttClientFactory().CreateMqttClient();
+            mqttClient.ConnectedAsync += ConnectedHandle;        //伺服器連線事件
+            mqttClient.DisconnectedAsync += DisconnectedHandle;  //伺服器斷線事件
+            mqttClient.ApplicationMessageReceivedAsync += ApplicationMessageReceivedHandle;  //接收到資料事件
 
-            // 連線至伺服器
-            await _MqttClient.ConnectAsync(Options);  
-
-            // 訂閱頻道
-            await SubscribeTopic();
-            Console.WriteLine("==========================================================================");
-        }
-
-
-        /// <summary>訂閱頻道</summary>
-        private static async Task SubscribeTopic()
-        {
-            if (_MqttClient.IsConnected)
-            {
-                Topics.ForEach(async Topic => {
-                    var TopicFilter = new MqttTopicFilterBuilder().WithTopic(Topic).Build();
-                    await _MqttClient.SubscribeAsync(TopicFilter, CancellationToken.None);  // 訂閱該頻道
-                    Console.WriteLine($"Subscribing to topic: {Topic}");
-                });
-            }
+            //連線至伺服器
+            await mqttClient.ConnectAsync(options);  
         }
 
         /// <summary>連線事件</summary>
-        private static Task ConnectedHandle(MqttClientConnectedEventArgs arg)
+        private static async Task ConnectedHandle(MqttClientConnectedEventArgs arg)
         {
             Console.WriteLine("Connected to MQTT Broker.");
-            return Task.CompletedTask;
+
+            //成功連線後，訂閱MQTT頻道
+            await SubscribeTopic();
         }
 
         /// <summary>斷線事件</summary>
         private static async Task DisconnectedHandle(MqttClientDisconnectedEventArgs arg)
         {
-            const int TimeForWait = 10;
-            Console.WriteLine("Connection has been interrupted");
+            const int timeForWait = 10;
+            Console.WriteLine($"Connection has been interrupted: {arg.ConnectResult.ResultCode}");
             Console.WriteLine($"Reconnecting in 10 seconds...");
-            await Task.Delay(TimeSpan.FromSeconds(TimeForWait));
-            await _MqttClient.ReconnectAsync(); // 當發生斷線事件時，自動重新連線，無須重新訂閱Topic
+            await Task.Delay(TimeSpan.FromSeconds(timeForWait));
+
+            //當發生斷線事件時重新連線，無須重新訂閱Topic
+            await mqttClient.ReconnectAsync();
         }
 
-        /// <summary>接收到推播事件</summary>
+        /// <summary>訂閱頻道</summary>
+        private static async Task SubscribeTopic()
+        {
+            if (mqttClient.IsConnected)
+            {
+                //訂閱頻道
+                mqttTopics.ForEach(async topic => {
+                    var topicFilter = new MqttTopicFilterBuilder().WithTopic(topic).Build();
+                    await mqttClient.SubscribeAsync(topicFilter, CancellationToken.None);  
+                    Console.WriteLine($"Subscribed to topic: {topic}");
+                });
+            }
+        }
+
+        /// <summary>接收到資料事件</summary>
         private static Task ApplicationMessageReceivedHandle(MqttApplicationMessageReceivedEventArgs arg)
         {
             Console.WriteLine($"Received message on topic: [{arg.ApplicationMessage.Topic}]");
