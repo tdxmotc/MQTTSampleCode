@@ -13,22 +13,36 @@ use PhpMqtt\Client\Exceptions\MqttClientException;
 use PhpMqtt\Client\Exceptions\DataTransferException;
 use PhpMqtt\Client\Exceptions\ConnectingToBrokerFailedException;
 
-$host = 'your_host';
-$port = 8083;
+//MQTT連線位址
+$host = 'mqtt.transportdata.tw';
+
+//MQTT連線Port
+$port = 8883;
+
+//MQTT連線ClientId，需從TDX網站會員中心取得
 $clientID = 'your_clientID';
+
+//MQTT連線Username，需從TDX網站會員中心取得
 $username = 'your_userName';
+
+//MQTT連線Password，需從TDX網站會員中心取得
 $password = 'your_passWord';
-$qos = 1;  // QoS (服務品質) 的等級，可以是 0、1 或 2
+
+//MQTT連線時的QoS等級
+$qos = 1;
+
 $connectionSettings = (new ConnectionSettings)
 ->setUsername($username)
 ->setPassword($password);
+
+//訂閱的MQTT頻道
 $topics = [
-    'v2/Bus/RealTimeNearStop/City/Taipei/108',
-    'v2/Bus/RealTimeNearStop/City/Taipei/206',
+    'v2/Bus/Alert/City/#',
 ];
+
 $mqtt = new MqttClient($host, $port, $clientID);
 
-// 連線至 MQTT 伺服器
+//連線至 MQTT 伺服器
 connectToMqtt($mqtt, $topics, $qos, $connectionSettings);
 
 // =======================================================
